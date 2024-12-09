@@ -73,20 +73,43 @@ class StockMove(models.Model):
     def action_assign(self):
         for move in self:
             quant = self.env['stock.quant']
+            
+            # Verificamos el stock disponible en la ubicación de origen
             available = quant._get_available_quantity(
                 move.product_id,
-                move.location_id,
+                move.location_id,  # Ubicación de origen
                 lot_id=move.lot_id,
                 package_id=move.package_id,
                 owner_id=move.owner_id,
             )
-            
-            if move.location_id.usage == 'production' and available < move.product_uom_qty:
+
+            # Validar el stock disponible en la ubicación de origen
+            if not move.location_id.allow_negative_stock and available < move.product_uom_qty:
                 error_params = quant._prepare_error_params(
                     move.product_id, 
                     move.location_id, 
                     available - move.product_uom_qty
                 )
-                quant._validate_production_stock(error_params)
+                quant._validate_internal_stock(error_params)
 
+            # Verificamos el stock disponible en la ubicación de destino
+            if move.location_dest_id and not move.location_dest_id.allow_negative_stock:
+                available_dest = quant._get_available_quantity(
+                    move.product_id,
+                    move.location_dest_id,  # Ubicación de destino
+                    lot_id=move.lot_id,
+                    package_id=move.package_id,
+                    owner_id=move.owner_id,
+                )
+
+                # Validar el stock disponible en la ubicación de destino
+                if available_dest < move.product_uom_qty:
+                    error_params = quant._prepare_error_params(
+                        move.product_id, 
+                        move.location_dest_id, 
+                        available_dest - move.product_uom_qty
+                    )
+                    quant._validate_internal_stock(error_params)
+
+        # Continuar con la acción original de asignación de stock
         return super().action_assign()
