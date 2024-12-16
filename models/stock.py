@@ -24,9 +24,8 @@ class StockQuant(models.Model):
                 self._validate_production_stock(error_params)
             elif location_id.usage == "internal":
                 self._validate_internal_stock(error_params)
-            elif location_id.usage == "transit":
+            elif location_id.usage == "transit" and location_id.name != 'Traslado entre almacenes' :
                 self._validate_transit_stock(error_params)
-
         return res
 
     def _prepare_error_params(self, product_id, location_id, quantity):
@@ -91,25 +90,6 @@ class StockMove(models.Model):
                     available - move.product_uom_qty
                 )
                 quant._validate_internal_stock(error_params)
-
-            # Verificamos el stock disponible en la ubicación de destino
-            if move.location_dest_id and not move.location_dest_id.allow_negative_stock:
-                available_dest = quant._get_available_quantity(
-                    move.product_id,
-                    move.location_dest_id,  # Ubicación de destino
-                    lot_id=move.lot_id,
-                    package_id=move.package_id,
-                    owner_id=move.owner_id,
-                )
-
-                # Validar el stock disponible en la ubicación de destino
-                if available_dest < move.product_uom_qty:
-                    error_params = quant._prepare_error_params(
-                        move.product_id, 
-                        move.location_dest_id, 
-                        available_dest - move.product_uom_qty
-                    )
-                    quant._validate_internal_stock(error_params)
 
         # Continuar con la acción original de asignación de stock
         return super().action_assign()
